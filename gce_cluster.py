@@ -25,6 +25,21 @@ import time
 
 import gce_api
 
+from multiprocessing import Process, Pipe
+from itertools import izip
+
+def spawn(f):
+    def fun(pipe,x):
+        pipe.send(f(x))
+        pipe.close()
+    return fun
+
+def parmap(f,X):
+    pipe=[Pipe() for x in X]
+    proc=[Process(target=spawn(f),args=(c,x)) for x,(p,c) in izip(X,pipe)]
+    [p.start() for p in proc]
+    [p.join() for p in proc]
+    return [p.recv() for (p,c) in pipe]
 
 def MakeScriptRelativePath(relative_path):
   """Converts file path relative to this script to valid path for OS."""
@@ -178,7 +193,7 @@ class GceCluster(object):
       raise ClusterSetUpError(
           'Persistent disk %s creation timed out.' % disk_name)
 
-  def _StartInstance(self, instance_name, role):
+  def _StartInstance(self, instance_name, role='worker'):
     """Starts single Compute Engine instance.
 
     Args:
@@ -376,8 +391,11 @@ class GceCluster(object):
     self._WaitForMasterSsh()
 
     # Start worker instances.
-    for i in xrange(self.flags.num_workers):
-      self._StartInstance(self._WorkerName(i), role='worker')
+    # for i in xrange(self.flags.num_workers):
+    #   self._StartInstance(self._WorkerName(i), role='worker')
+
+    parmap(self._StartInstance, [self._WorkerName(i) for i in xrange(self.flags.num_workers)])
+
 
     self._WaitForWorkersReady()
     self._ShowHadoopInformation()
