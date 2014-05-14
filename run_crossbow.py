@@ -86,6 +86,11 @@ class RunCrossbow(object):
 
 
   def setup(self, params):
+    print params
+    if params.project == None or params.bucket == None:
+      logging.error("Required parameters are missing. --project and --bucket are required.")
+      sys.exit(1);
+
     print "Starting setup..."
     print "Downloading Required Packages..."
     hadoop_tar = 'http://archive.apache.org/dist/hadoop/core/hadoop-1.2.1/hadoop-1.2.1.tar.gz'
@@ -201,10 +206,13 @@ class RunCrossbow(object):
                          'lower case alphabet.')
         sys.exit(1)
 
+    print params
     if hasattr(params, 'setup') and params.setup:
       self.setup(params)
       sys.exit(1)
-
+    elif params.project == None or params.bucket == None or params.referencejar == None or params.manifest == None or params.numWorkers == None:
+      logging.error("Required parameters are missing. Please check your command and try again.")
+      sys.exit(1);
 
     refJar = params.referencejar.split(os.sep)[-1]
     manifest = params.manifest.split(os.sep)[-1]
