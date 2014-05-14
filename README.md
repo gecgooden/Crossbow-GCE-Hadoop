@@ -116,8 +116,8 @@ Security Issues
 Without additional security consideration, which falls outside the scope
 of the application, Hadoop's Web UI is open to public. This means that any confidential data you may have on the cluster is available without any authentication. You should take this into consideration before uploading your data to Google Cloud Storage.
 Some resources on the Web are:
-    * [Authentication for Hadoop HTTP web-consoles](http://hadoop.apache.org/docs/stable/HttpAuthentication.html)
-    * [Google Compute Engine: Setting Up VPN Gateways](https://developers.google.com/compute/docs/networking#settingupvpn)
+* [Authentication for Hadoop HTTP web-consoles](http://hadoop.apache.org/docs/stable/HttpAuthentication.html)
+* [Google Compute Engine: Setting Up VPN Gateways](https://developers.google.com/compute/docs/networking#settingupvpn)
 
 
 Set up Instructions
