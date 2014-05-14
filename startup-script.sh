@@ -134,8 +134,65 @@ gsutil -m cp -R $TMP_CLOUD_STORAGE/$HADOOP_DIR.tar.gz  \
     die "Failed to download Hadoop and required packages from "  \
         "$TMP_CLOUD_STORAGE/"
 
+gsutil cp $TMP_CLOUD_STORAGE/$GENERATED_FILES_DIR.tar.gz $TMP_DIR || die "Failed to download Hadoop and required packages from $TMP_CLOUD_STORAGE/"
+
+tar zxf $TMP_DIR/$GENERATED_FILES_DIR.tar.gz
+
 # Set up Java Runtime Environment.
 dpkg -i --force-depends $TMP_DIR/$DEB_PACKAGE_DIR/*.deb
+
+sudo mkdir /etc/ganglia/
+sudo cp $TMP_DIR/$GENERATED_FILES_DIR/gmond.conf /etc/ganglia/gmond.conf
+sudo sed -i 's/name = \"unspecified\"/name = \"GCE\"/' /etc/ganglia/gmond.conf
+sudo sed -i "s/###HADOOP_MASTER###/$MASTER_NAME/g" /etc/ganglia/gmond.conf
+
+sudo apt-get update
+sudo apt-get -fy install
+sudo DEBIAN_FRONTEND='noninteractive' apt-get -y --force-yes install unzip perl build-essential rrdtool librrds-perl librrd2-dev php5-gd libapr1-dev libconfuse-dev libdbi0-dev gcc python-dev python-setuptools
+
+sudo easy_install -U pip
+sudo pip uninstall crcmod
+sudo pip install -U crcmod
+
+wget "http://downloads.sourceforge.net/project/ganglia/ganglia%20monitoring%20core/3.6.0/ganglia-3.6.0.tar.gz?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fganglia%2Ffiles%2Fganglia%2520monitoring%2520core%2F3.6.0%2F&ts=1392698981&use_mirror=ufpr" -O ganglia-3.6.0.tar.gz
+
+tar zxf ganglia-3.6.0.tar.gz
+ls
+echo $HOSTNAME
+# Setup ganglia-web if master node
+if [ "$(hostname)" == "$HADOOP_MASTER" ] 
+  then
+  cd ganglia-3.6.0; ./configure --sysconfdir=/etc/ --with-gmetad
+  make -C ~/ganglia-3.6.0/
+  sudo make install -C ~/ganglia-3.6.0/
+  sudo cp $TMP_DIR/$GENERATED_FILES_DIR/gmeta /etc/ganglia/gmetad.conf
+  sudo gmond -c /etc/ganglia/gmond.conf
+  echo "$HOSTNAME STARTED GMOND"
+  sudo gmetad -c /etc/ganglia/gmetad.conf
+  echo "$HOSTNAME STARTED GMETAD"
+  sudo apt-get -fy install apache2 php5-mysql libapache2-mod-php5 php-pear php-xml-parser rrdtool screen #> /dev/null
+  sudo gsutil cp $TMP_CLOUD_STORAGE/ganglia-web-3.5.10.tar.gz /home/hadoop/
+  sudo tar zxf /home/hadoop/ganglia-web-3.5.10.tar.gz -C /home/hadoop/
+  sudo mv /home/hadoop/ganglia-web-3.5.10/ /var/www/ganglia/
+  sudo mkdir -p /var/lib/ganglia-web/dwoo/cache /var/lib/ganglia-web/dwoo/compiled
+  sudo chown -R www-data:www-data /var/lib/ganglia-web/
+  sudo chown -R www-data:www-data /var/www/ganglia/
+  sudo cp /var/www/ganglia/conf_default.php /var/www/ganglia/conf.php
+  sudo sed -i 's/8652/8651/' /var/www/ganglia/conf.php
+  sudo mkdir -p /var/lib/ganglia/rrds/
+  sudo chown -R nobody /var/lib/ganglia/
+else
+  cd ganglia-3.6.0; ./configure --sysconfdir=/etc/
+  make -C ~/ganglia-3.6.0/
+  sudo make install -C ~/ganglia-3.6.0/
+  echo "$HOSTNAME STARTED GMOND"
+  sudo gmond -c /etc/ganglia/gmond.conf
+fi
+
+sudo gsutil cp $TMP_CLOUD_STORAGE/crossbow-gce.tar.gz /home/hadoop/crossbow-gce.tar.gz
+
+sudo tar zxf /home/hadoop/crossbow-gce.tar.gz -C /home/hadoop/
+sudo chown -R hadoop:hadoop /home/hadoop/crossbow/
 
 SCRIPT_AS_HADOOP=$TMP_DIR/setup_as_hadoop.sh
 cat > $SCRIPT_AS_HADOOP <<NEKO
@@ -178,6 +235,8 @@ sudo -u hadoop bash $SCRIPT_AS_HADOOP ||  \
 
 # Run custom commands.
 eval "$CUSTOM_COMMAND" || die "Custom command error: $CUSTOM_COMMAND"
+
+touch /home/george/complete
 
 function run_as_hadoop() {
   failure_message=$1 ; shift
